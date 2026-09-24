@@ -1,0 +1,81 @@
+name: Wrong license status
+description: fontbom reported the wrong status (open, commercial, restricted or unknown) or SPDX id for a font.
+labels: ["bug", "classification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Don't attach the font.** Issues are public, and a commercial font posted here is published to everyone. Paste the font's entry from the JSON report instead. It holds the metadata fontbom used, not the font.
+
+        How fontbom decides:
+
+        - `open` needs license text or a license URL in name ID 13 or 14, or an adjacent license file. It is never inferred from a family, file or vendor name, so a request to mark a font `open` because of its name will be closed.
+        - `commercial` needs explicit EULA wording, or a license URL on a known commercial vendor's site.
+        - `restricted` means the font's `fsType` asks for restricted license embedding. It overrides the other statuses.
+        - `unknown` is the default when none of these apply.
+
+        fontbom reports metadata. It is not legal advice, and this template is not the place to ask whether a license covers your use.
+  - type: dropdown
+    id: reported
+    attributes:
+      label: Status fontbom reported
+      options:
+        - open
+        - commercial
+        - restricted
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: expected
+    attributes:
+      label: Status you expected
+      options:
+        - open
+        - commercial
+        - restricted
+        - unknown
+    validations:
+      required: true
+  - type: input
+    id: font
+    attributes:
+      label: Font
+      description: Family and style, plus a link if the font is public, such as its Google Fonts or foundry page.
+      placeholder: Inter Regular, https://fonts.google.com/specimen/Inter
+    validations:
+      required: true
+  - type: textarea
+    id: record
+    attributes:
+      label: JSON report entry
+      description: >-
+        The font's object from the `fonts` array of `fontbom scan PATH --format json`, including
+        `license` and `faces`. Replace private paths.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Why the status is wrong
+      description: >-
+        Quote the license text or URL that should decide the status, and say where it is: name
+        ID 13 or 14, or a license file (give its name and where it sits relative to the font).
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: fontbom version
+      description: Output of `fontbom --version`.
+      placeholder: fontbom, version 0.1.0
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I haven't attached or pasted any font file, app binary or code I don't have the right to share.
+          required: true

@@ -1,0 +1,103 @@
+name: Bug report
+description: A crash, an error, a wrong exit code, a missed code reference or broken output.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Issues are public. Never attach font files, app binaries (`.ipa`, `.apk`, `.aab`, `.app`) or code you don't have the right to share.** A commercial font or client app posted here is published to everyone.
+
+        Paste the relevant part of the JSON report instead (`fontbom scan PATH --format json`). It holds the font's metadata, not the font. Replace any paths or names you need to keep private.
+
+        - Wrong license status or SPDX id: use the **Wrong license status** template.
+        - Security problem: don't open an issue. Use **Report a vulnerability** on the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: fontbom version
+      description: Output of `fontbom --version`.
+      placeholder: fontbom, version 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: If you know it, for example from `python3 --version`.
+      placeholder: Python 3.12.6
+  - type: dropdown
+    id: input
+    attributes:
+      label: What you scanned
+      options:
+        - Source directory
+        - .ipa
+        - .app
+        - .apk
+        - .aab
+        - .xcframework
+        - .zip
+        - Single font file
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The full command you ran, with private paths replaced.
+      placeholder: fontbom scan build/App.ipa --format json --fail-on commercial
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Include the exit code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: stderr
+    attributes:
+      label: Error output
+      description: Anything printed on stderr, including a traceback.
+      render: text
+  - type: textarea
+    id: report
+    attributes:
+      label: JSON report excerpt
+      description: The relevant part of the JSON report, with private details replaced.
+      render: json
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Code reference
+      description: >-
+        If a code reference was missed or matched wrongly, a minimal snippet in the same form,
+        for example `UIFont(name: "Brand-Bold", size: 17)`. Write a made-up equivalent rather
+        than pasting code you can't share.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I haven't attached or pasted any font file, app binary or code I don't have the right to share.
+          required: true

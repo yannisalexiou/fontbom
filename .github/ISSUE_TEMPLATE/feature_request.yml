@@ -1,0 +1,44 @@
+name: Feature request
+description: A new input format, code-reference pattern, license rule or output option.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the Roadmap section of the README first. SARIF, CycloneDX and SPDX output, a license-evidence file, a font-license knowledge base and glyph fingerprinting are already planned.
+
+        fontbom works fully offline and only reports `open` when it finds license evidence, so it can't accept requests that need network lookups or guesses based on a font's name.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Input format or archive type
+        - Code references
+        - License rules
+        - Report formats
+        - CLI or CI integration
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: >-
+        What fontbom should do. For a new code-reference pattern, include a short made-up
+        snippet it should match. For a license rule, link the public license text.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds
+      description: Anything you do today instead.
