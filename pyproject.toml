@@ -41,7 +41,10 @@ dev = [
 fontbom = "fontbom.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ioannisalexiou/fontbom"
+Homepage = "https://github.com/yannisalexiou/fontbom"
+Repository = "https://github.com/yannisalexiou/fontbom"
+Issues = "https://github.com/yannisalexiou/fontbom/issues"
+Changelog = "https://github.com/yannisalexiou/fontbom/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/fontbom/__init__.py"
