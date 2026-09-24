@@ -1,0 +1,127 @@
+{
+  "disclaimer": "fontbom reports metadata found inside font files and adjacent license files. It is not legal advice. Verify license terms with the font vendor or your legal team.",
+  "fonts": [
+    {
+      "faces": [
+        {
+          "bitmap_only": false,
+          "embedding": "installable",
+          "errors": [],
+          "family": "Libre Test",
+          "fs_type": 0,
+          "full_name": "Libre Test Regular",
+          "index": 0,
+          "names": {
+            "0": "Copyright 2026 Test Foundry",
+            "1": "Libre Test",
+            "13": "This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+            "14": "https://openfontlicense.org",
+            "2": "Regular",
+            "4": "Libre Test Regular",
+            "6": "LibreTest-Regular"
+          },
+          "no_subsetting": false,
+          "postscript_name": "LibreTest-Regular",
+          "vendor_id": "TEST",
+          "version": "1.000"
+        }
+      ],
+      "format": "truetype",
+      "license": {
+        "embedding": "installable",
+        "evidence": [
+          {
+            "excerpt": "https://openfontlicense.org",
+            "source": "name_id_14"
+          }
+        ],
+        "notes": [],
+        "spdx": "OFL-1.1",
+        "status": "open"
+      },
+      "paths": [
+        "App.ipa!/Payload/App.app/Libre-Regular.ttf"
+      ],
+      "referenced": true,
+      "references": [
+        {
+          "confidence": "high",
+          "ecosystem": "ios",
+          "kind": "uifont",
+          "line": 3,
+          "name": "LibreTest-Regular",
+          "source": "App/Views.swift"
+        }
+      ],
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 1000
+    },
+    {
+      "faces": [
+        {
+          "bitmap_only": false,
+          "embedding": "restricted",
+          "errors": [],
+          "family": "Secret Sans",
+          "fs_type": 2,
+          "full_name": "Secret Sans Bold",
+          "index": 0,
+          "names": {
+            "1": "Secret Sans",
+            "4": "Secret Sans Bold",
+            "6": "SecretSans-Bold"
+          },
+          "no_subsetting": false,
+          "postscript_name": "SecretSans-Bold",
+          "vendor_id": "SCRT",
+          "version": "2.000"
+        }
+      ],
+      "format": "opentype-cff",
+      "license": {
+        "embedding": "restricted",
+        "evidence": [
+          {
+            "excerpt": "restricted license embedding: 0x2",
+            "source": "fs_type"
+          }
+        ],
+        "notes": [],
+        "spdx": null,
+        "status": "restricted"
+      },
+      "paths": [
+        "App.ipa!/Payload/App.app/Frameworks/Vendor.framework/Secret.otf",
+        "App.ipa!/Payload/App.app/Secret.otf"
+      ],
+      "referenced": false,
+      "references": [],
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 2000
+    }
+  ],
+  "input": "App.ipa",
+  "scanned_at": "2026-09-22T12:00:00Z",
+  "schema_version": 1,
+  "summary": {
+    "commercial": 0,
+    "fonts": 2,
+    "open": 1,
+    "referenced": 1,
+    "restricted": 1,
+    "unbundled_references": 1,
+    "unknown": 0,
+    "unreferenced": 1
+  },
+  "tool": "fontbom 0.1.0",
+  "unbundled_references": [
+    {
+      "confidence": "high",
+      "ecosystem": "web",
+      "kind": "google-fonts-url",
+      "line": 1,
+      "name": "Open Sans",
+      "source": "www/index.html"
+    }
+  ]
+}

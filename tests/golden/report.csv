@@ -1,0 +1,4 @@
+# fontbom reports metadata found inside font files and adjacent license files. It is not legal advice. Verify license terms with the font vendor or your legal team.
+sha256,status,spdx,embedding,family,full_name,postscript_name,vendor_id,version,format,referenced,reference_count,path_count,paths
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,open,OFL-1.1,installable,Libre Test,Libre Test Regular,LibreTest-Regular,TEST,1.000,truetype,true,1,1,App.ipa!/Payload/App.app/Libre-Regular.ttf
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,restricted,,restricted,Secret Sans,Secret Sans Bold,SecretSans-Bold,SCRT,2.000,opentype-cff,false,0,2,App.ipa!/Payload/App.app/Frameworks/Vendor.framework/Secret.otf;App.ipa!/Payload/App.app/Secret.otf
