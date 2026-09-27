@@ -63,3 +63,25 @@ def test_accepts_android_source_and_xml(tmp_path: Path) -> None:
         assert scanner.accepts(entry(tmp_path, name, "")), name
     for name in ["a.swift", "a.ttf", "a.storyboard"]:
         assert not scanner.accepts(entry(tmp_path, name, "")), name
+
+
+def test_font_file_names_with_spaces(tmp_path: Path) -> None:
+    xml = '<TextView app:fontPath="fonts/Example Sans Bold.ttf" />\n'
+    refs = list(AndroidScanner().scan(entry(tmp_path, "res/layout/a.xml", xml)))
+    assert names(refs) == ["fonts/Example Sans Bold.ttf"]
+    assert refs[0].kind == "font-file-literal"
+
+
+def test_style_item_with_font_path_as_text(tmp_path: Path) -> None:
+    # The Calligraphy library's style form.
+    xml = """<resources>
+  <style name="Heading">
+    <item name="fontPath">fonts/Oswald-Light.ttf</item>
+    <item name="fontPath">fonts/Example Sans Bold.ttf</item>
+    <item name="android:textSize">14sp</item>
+  </style>
+</resources>"""
+    refs = list(AndroidScanner().scan(entry(tmp_path, "res/values/styles.xml", xml)))
+    assert names(refs) == ["fonts/Example Sans Bold.ttf", "fonts/Oswald-Light.ttf"]
+    assert {r.kind for r in refs} == {"font-file-text"}
+    assert next(r for r in refs if r.name.endswith("Light.ttf")).line == 3

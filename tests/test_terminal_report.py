@@ -102,3 +102,13 @@ def test_empty_result_says_so() -> None:
 
 def test_render_registry_knows_terminal() -> None:
     assert "Fonts" in render(fixed_result(), "terminal")
+
+
+def test_terminal_output_carries_no_escape_sequences_from_font_metadata() -> None:
+    from tests.test_reports import hostile_result
+
+    for color in (False, True):
+        out = render_terminal(hostile_result(), width=200, color=color)
+        assert "\x1b]8;;" not in out, color
+        assert "\x1b[2J" not in out, color
+        assert "\x07" not in out, color

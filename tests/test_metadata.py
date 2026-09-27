@@ -113,3 +113,10 @@ def test_corrupt_font_yields_error_face_instead_of_raising() -> None:
     assert face.embedding == Embedding.UNKNOWN
     assert len(face.errors) == 1
     assert "parse" in face.errors[0].lower()
+
+
+def test_font_without_head_or_name_table_yields_error() -> None:
+    # TrueType magic followed by an empty table directory parses lazily without complaint.
+    (face,) = read_faces(b"\x00\x01\x00\x00" + bytes(4092), FontFormat.TRUETYPE)
+    assert face.names == {}
+    assert face.errors

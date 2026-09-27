@@ -125,3 +125,57 @@ def test_entries_carry_a_cached_header(tmp_path: Path) -> None:
     assert entries["empty.bin"].header == b""
     (root / "a.ttf").unlink()
     assert entries["a.ttf"].read_header(4) == b"\x00\x01\x00\x00"
+
+
+def test_skips_swiftpm_index_builds_and_repository_mirrors(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "repo",
+        {
+            "Kit/.build/index-build/debug/Kit.build/Fonts/A.ttf": make_font(),
+            "Kit/.build/repositories/dep-1a2b/objects/pack": "x",
+            "Kit/.build/checkouts/Dep/Fonts/B.ttf": make_font(),
+            "Kit/.build/artifacts/dep/Dep.xcframework/Info.plist": "<plist/>",
+            "Tools/index-build/keep.txt": "only skipped inside .build",
+        },
+    )
+    assert paths(list(walk(root, Limits(), tmp_path / "work"))) == [
+        "Kit/.build/artifacts/dep/Dep.xcframework/Info.plist",
+        "Kit/.build/checkouts/Dep/Fonts/B.ttf",
+        "Tools/index-build/keep.txt",
+    ]
+
+
+def test_exclude_pattern_without_slash_matches_names_at_any_depth(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "repo",
+        {"Pods/Lib/A.ttf": "x", "app/Pods/B.ttf": "x", "app/src/C.ttf": "x", "app/notes.tmp": "x"},
+    )
+    entries = list(walk(root, Limits(), tmp_path / "work", exclude=("Pods", "*.tmp")))
+    assert paths(entries) == ["app/src/C.ttf"]
+
+
+def test_exclude_pattern_with_slash_matches_the_path_from_the_root(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "repo",
+        {"app/build/out/A.ttf": "x", "lib/app/build/B.ttf": "x", "app/src/C.ttf": "x"},
+    )
+    for pattern in ("app/build", "app/build/*"):
+        entries = list(walk(root, Limits(), tmp_path / "work", exclude=(pattern,)))
+        assert paths(entries) == ["app/src/C.ttf", "lib/app/build/B.ttf"], pattern
+
+
+def test_excluded_archive_is_not_opened(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    write_zip(root / "libs/vendor.aar", {"res/font/a.ttf": make_font()})
+    write_tree(root, {"app/b.ttf": "x"})
+    entries = list(walk(root, Limits(), tmp_path / "work", exclude=("*.aar",)))
+    assert paths(entries) == ["app/b.ttf"]
+
+
+def test_held_entry_is_read_from_disk_once(tmp_path: Path) -> None:
+    root = write_tree(tmp_path / "repo", {"App/Theme.swift": 'let f = "Inter"'})
+    (entry,) = list(walk(root, Limits(), tmp_path / "work"))
+    with entry.held():
+        entry.real_path.unlink()
+        assert entry.read() == b'let f = "Inter"'
+        assert entry.read() == b'let f = "Inter"'

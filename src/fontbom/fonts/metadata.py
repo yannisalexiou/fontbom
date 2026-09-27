@@ -22,6 +22,9 @@ FS_EDITABLE = 0x0008
 FS_NO_SUBSETTING = 0x0100
 FS_BITMAP_ONLY = 0x0200
 
+# Every font has these. A lazily parsed file with font magic but without them is not a font.
+REQUIRED_TABLES: tuple[str, ...] = ("head", "name")
+
 
 def decode_embedding(fs_type: int) -> Embedding:
     """Decode bits 0-3 of fsType. The least restrictive set bit wins (OpenType spec)."""
@@ -52,6 +55,9 @@ def read_faces(data: bytes, fmt: FontFormat) -> list[FontFace]:
 
 def _read_face(font: TTFont, index: int, fmt: FontFormat) -> FontFace:
     face = FontFace(index=index, format=fmt)
+    missing = [tag for tag in REQUIRED_TABLES if tag not in font]
+    if missing:
+        face.errors.append(f"missing required table: {', '.join(missing)}")
     try:
         face.names = _read_names(font)
     except Exception as exc:

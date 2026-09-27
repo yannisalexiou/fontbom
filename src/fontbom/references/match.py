@@ -65,6 +65,33 @@ SYSTEM_NAMES = frozenset(
 )
 ANDROID_SYSTEM_NAMES = frozenset({"roboto", "casual", "notoserif", "droidsans", "droidsansmono"})
 ANDROID_SYSTEM_PREFIXES = ("sansserif", "roboto")
+# Font families built into iOS, normalised. They count as system fonts for iOS and web
+# references, alone or followed by style words ("HelveticaNeue-Bold", "Arial-BoldMT").
+IOS_SYSTEM_FAMILIES = frozenset(
+    {
+        "academyengravedlet", "alnile", "americantypewriter", "applesdgothicneo", "applesymbols",
+        "arialhebrew", "arialroundedmtbold", "avenir", "avenirnext", "avenirnextcondensed",
+        "baskerville", "bodoni72", "bodoni72oldstyle", "bodoni72smallcaps", "bodoniornaments",
+        "bradleyhand", "chalkboardse", "chalkduster", "charter", "cochin", "copperplate",
+        "damascus", "devanagarisangammn", "didot", "dinalternate", "dincondensed", "euphemiaucas",
+        "farah", "futura", "galvji", "geezapro", "gillsans", "granthasangammn",
+        "hiraginomarugothicpron", "hiraginominchopron", "hiraginosans", "hoeflertext", "kailasa",
+        "kefa", "khmersangammn", "kohinoorbangla", "kohinoordevanagari", "kohinoorgujarati",
+        "kohinoortelugu", "laosangammn", "malayalamsangammn", "markerfelt", "mishafi",
+        "muktamahee", "myanmarsangammn", "newyork", "noteworthy", "notonastaliqurdu",
+        "notosanskannada", "notosansmyanmar", "notosansoriya", "optima", "palatino", "papyrus",
+        "partylet", "pingfanghk", "pingfangsc", "pingfangtc", "rockwell", "savoyelet",
+        "sfcompact", "sfcompactdisplay", "sfcompactrounded", "sfcompacttext", "sfprorounded",
+        "sinhalasangammn", "snellroundhand", "stixtwomath", "stixtwotext", "symbol",
+        "tamilsangammn", "telugusangammn", "thonburi", "trebuchetms", "zapfdingbats", "zapfino",
+    }
+)  # fmt: skip
+APPLE_AND_WEB_SYSTEM_FAMILIES = SYSTEM_NAMES | IOS_SYSTEM_FAMILIES
+STYLE_WORDS = re.compile(
+    r"(?:regular|book|roman|normal|plain|medium|semi|demi|extra|ultra|bold|heavy|black|light"
+    r"|thin|hairline|italic|oblique|condensed|compressed|expanded|extended|narrow|wide|ps|mt)*"
+)
+MATCH_ONLY_WHEN_SPACED = frozenset({"font-file-literal", "font-file-text"})
 
 
 def normalize(name: str) -> str:
@@ -95,7 +122,26 @@ def is_system_name(reference: Reference) -> bool:
         return True
     if reference.ecosystem == "android":
         return key in ANDROID_SYSTEM_NAMES or key.startswith(ANDROID_SYSTEM_PREFIXES)
+    if reference.ecosystem in ("ios", "web"):
+        if key.startswith("."):  # Apple's private system names: .AppleSystemUIFont, .SFUI-Bold
+            return True
+        return any(
+            key.startswith(family) and STYLE_WORDS.fullmatch(key[len(family) :])
+            for family in APPLE_AND_WEB_SYSTEM_FAMILIES
+        )
     return False
+
+
+def may_be_missing(reference: Reference) -> bool:
+    """Whether an unmatched reference belongs in the not-bundled list.
+
+    A quoted string that ends in a font extension and contains whitespace is often a message
+    ("Could not load X.ttf"), so it links to a bundled font but is never reported as missing.
+    """
+    if is_system_name(reference):
+        return False
+    spaced = any(c.isspace() for c in reference.name)
+    return not (spaced and reference.kind in MATCH_ONLY_WHEN_SPACED)
 
 
 def link(records: Sequence[FontRecord], references: Iterable[Reference]) -> list[Reference]:
@@ -105,13 +151,19 @@ def link(records: Sequence[FontRecord], references: Iterable[Reference]) -> list
         for key in record_keys(record):
             index.setdefault(key, []).append(record)
 
+    # A set per record keeps duplicate removal linear; fonts can collect thousands of references.
+    attached: dict[int, set[Reference]] = {}
     unbundled: set[Reference] = set()
     for reference in references:
         matches = index.get(normalize(reference.name))
         if matches:
             for record in matches:
-                if reference not in record.references:
+                seen = attached.get(id(record))
+                if seen is None:
+                    seen = attached[id(record)] = set(record.references)
+                if reference not in seen:
+                    seen.add(reference)
                     record.references.append(reference)
-        elif not is_system_name(reference):
+        elif may_be_missing(reference):
             unbundled.add(reference)
     return sorted(unbundled, key=lambda r: (r.name, r.ecosystem, r.source, r.line or 0))

@@ -62,3 +62,9 @@ def test_accepts_only_pubspec_and_dart(tmp_path: Path) -> None:
     assert scanner.accepts(entry(tmp_path, "lib/a.dart", ""))
     assert not scanner.accepts(entry(tmp_path, "pubspec.lock", ""))
     assert not scanner.accepts(entry(tmp_path, "other.yaml", ""))
+
+
+def test_pubspec_asset_list_item_with_spaces(tmp_path: Path) -> None:
+    pubspec = "flutter:\n  assets:\n    - assets/fonts/Example Sans Bold.ttf\n"
+    refs = list(FlutterScanner().scan(entry(tmp_path, "pubspec.yaml", pubspec)))
+    assert names(refs) == ["assets/fonts/Example Sans Bold.ttf"]

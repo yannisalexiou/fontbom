@@ -7,6 +7,7 @@ import io
 
 from fontbom.models import ScanResult
 from fontbom.report.disclaimer import TEXT as DISCLAIMER
+from fontbom.report.escaping import csv_cell
 
 COLUMNS = (
     "sha256",
@@ -39,16 +40,16 @@ def render_csv(result: ScanResult) -> str:
                 record.license.status.value,
                 record.license.spdx or "",
                 record.license.embedding.value,
-                face.family or "",
-                face.full_name or "",
-                face.postscript_name or "",
-                face.vendor_id or "",
-                face.version or "",
+                csv_cell(face.family or ""),
+                csv_cell(face.full_name or ""),
+                csv_cell(face.postscript_name or ""),
+                csv_cell(face.vendor_id or ""),
+                csv_cell(face.version or ""),
                 record.format.value,
                 "true" if record.referenced else "false",
                 len(record.references),
                 len(record.paths),
-                ";".join(record.paths),
+                csv_cell(";".join(record.paths)),
             ]
         )
     return buffer.getvalue()

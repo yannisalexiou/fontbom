@@ -62,3 +62,14 @@ def test_accepts_web_files(tmp_path: Path) -> None:
     for name in ["a.css", "a.scss", "a.less", "a.html", "a.htm"]:
         assert scanner.accepts(entry(tmp_path, name, "")), name
     assert not scanner.accepts(entry(tmp_path, "a.js", ""))
+
+
+def test_font_face_family_list_is_split(tmp_path: Path) -> None:
+    css = """@font-face {
+  font-family: OpenSans, "Helvetica Neue", sans-serif;
+  src: url(fonts/OpenSans.ttf);
+}"""
+    refs = list(WebScanner().scan(entry(tmp_path, "style.css", css)))
+    families = sorted(r.name for r in refs if r.kind == "font-face")
+    assert families == ["Helvetica Neue", "OpenSans", "sans-serif"]
+    assert {r.line for r in refs if r.kind == "font-face"} == {2}

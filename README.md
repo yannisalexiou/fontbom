@@ -34,7 +34,17 @@ fontbom scan App.ipa --fail-on unknown,commercial,restricted
 
 Inputs: a directory, `.ipa`, `.app`, `.apk`, `.aab`, `.xcframework`, `.zip`, or a single font
 file. Nested archives and bundles (`.framework`, `.bundle`, `.aar`, `.jar`, zip inside zip) are
-expanded, with limits on depth, total size and member count.
+expanded, with limits on depth, total size and member count. Files without a font extension are
+recognised by their magic bytes and count only if they parse as a font.
+
+Directory scans skip `.git`, and the SwiftPM caches `.build/index-build` and `.build/repositories`,
+which never hold anything that ships. `--exclude PATTERN` skips more; it is repeatable. A pattern
+without `/` matches a file or directory name at any depth, one with `/` matches the path under the
+scanned directory:
+
+```
+fontbom scan . --exclude Pods --exclude 'app/build/*'
+```
 
 Exit codes:
 
@@ -90,12 +100,18 @@ the distance limit.
 
 | Ecosystem    | What is scanned |
 | ------------ | --------------- |
-| iOS          | `UIFont(name:)`, `fontWithName:`, SwiftUI `Font.custom`, `UIAppFonts` in Info.plist (XML or binary), `Bundle.url(forResource:withExtension:)` for Core Text registration, font file literals, storyboard and xib `fontDescription` |
-| Android      | `@font/x`, `R.font.x`, `android:fontFamily`, `app:fontFamily`, `Typeface.createFromAsset`, font file literals |
+| iOS          | `UIFont(name:)`, `fontWithName:`, SwiftUI `Font.custom`, `UIAppFonts` in Info.plist (XML or binary), `Bundle.url(forResource:withExtension:)` for Core Text registration, font file literals, storyboard and xib `fontDescription`, and user-defined runtime attributes whose key path ends in `fontName` or `fontFamily` |
+| Android      | `@font/x`, `R.font.x`, `android:fontFamily`, `app:fontFamily`, `Typeface.createFromAsset`, font file literals, font file paths as XML text (`<item name="fontPath">fonts/X.ttf</item>`, the Calligraphy style form) |
 | Flutter      | `pubspec.yaml` `fonts:` families and assets, Dart `fontFamily:` |
 | React Native | `require('…ttf')`, `import … from '…ttf'`, `fontFamily:` in styles |
 | Web          | `@font-face` families and `src` URLs, Google Fonts stylesheet URLs (parsed, never fetched) |
 | Binaries     | Family, full and PostScript names of discovered fonts searched as ASCII and UTF-16 strings in Mach-O executables, `classes.dex`, `resources.arsc`, `resources.pb`, `.so`, `.dylib` and compiled nibs. Reported at low confidence. |
+| All sources  | Quoted strings that equal a discovered font's family, full, PostScript or file name, such as a name kept in a constant and passed to `UIFont(name:)` later |
+
+iOS built-in fonts (`HelveticaNeue-Bold`, `Avenir Next`, `.AppleSystemUIFont`) and Android system
+fonts are not listed as referenced but not bundled. A quoted font file name that contains spaces
+links to a bundled font, but is not listed as missing when nothing matches, because such strings
+are often messages.
 
 Compiled Swift, Kotlin and Android binary XML are not decompiled. A font that is loaded by a
 name built at runtime can appear as unreferenced.
@@ -108,6 +124,10 @@ name built at runtime can appear as unreferenced.
   other tools.
 - `csv`: one row per font, disclaimer as a leading `#` comment.
 - `markdown`: summary, font table, gap lists. Suitable for pull-request comments.
+
+Font metadata and paths come from the scanned files, so reports neutralise them: CSV cells that
+would start a formula get a leading `'`, Markdown escapes HTML, links and code spans, and the
+terminal report shows control characters as `\xNN`.
 
 ## Roadmap
 

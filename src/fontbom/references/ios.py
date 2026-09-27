@@ -11,10 +11,12 @@ from fontbom.inputs.walker import FileEntry
 from fontbom.models import Confidence, Reference
 from fontbom.references.base import (
     FONT_EXTENSION_GROUP,
+    FONT_FILE_LITERAL,
     Pattern,
     RegexScanner,
     emit,
-    read_text,
+    line_of,
+    read_source,
 )
 
 SOURCE_EXTENSIONS = frozenset({".swift", ".m", ".mm", ".h"})
@@ -37,10 +39,7 @@ SOURCE_PATTERNS: tuple[Pattern, ...] = (
         ),
         build=lambda m: f"{m.group(1)}.{m.group(2)}",
     ),
-    Pattern(
-        "font-file-literal",
-        re.compile(rf"\"([^\"\s]+\.{FONT_EXTENSION_GROUP})\"", re.IGNORECASE),
-    ),
+    FONT_FILE_LITERAL,
 )
 
 FONT_DESCRIPTION = re.compile(r"<fontDescription\b[^>]*>")
@@ -48,6 +47,11 @@ INTERFACE_PATTERNS: tuple[Pattern, ...] = (
     Pattern("storyboard", re.compile(r"\bname=\"([^\"]+)\"")),
     Pattern("storyboard", re.compile(r"\bfamily=\"([^\"]+)\"")),
 )
+# Custom views expose a font name to Interface Builder as an inspectable string property, which
+# the storyboard stores as a user-defined runtime attribute, for example keyPath="fontName".
+RUNTIME_ATTRIBUTE = re.compile(r"<userDefinedRuntimeAttribute\b[^>]*>")
+XML_ATTRIBUTE = re.compile(r"(\w+)=\"([^\"]*)\"")
+FONT_KEY_PATH_SUFFIXES = ("fontname", "fontfamily")
 
 
 class IOSScanner(RegexScanner):
@@ -83,9 +87,22 @@ def _scan_plist(entry: FileEntry) -> Iterator[Reference]:
 
 
 def _scan_interface(entry: FileEntry) -> Iterator[Reference]:
-    text = read_text(entry)
+    text = read_source(entry)
     if text is None:
         return
     for tag in FONT_DESCRIPTION.finditer(text):
         line = text.count("\n", 0, tag.start())
         yield from emit(INTERFACE_PATTERNS, tag.group(0), entry.logical_path, "ios", offset=line)
+    for tag in RUNTIME_ATTRIBUTE.finditer(text):
+        attributes = dict(XML_ATTRIBUTE.findall(tag.group(0)))
+        value = attributes.get("value", "").strip()
+        names_a_font = attributes.get("keyPath", "").lower().endswith(FONT_KEY_PATH_SUFFIXES)
+        if attributes.get("type") == "string" and value and names_a_font:
+            yield Reference(
+                value,
+                "ib-runtime-attribute",
+                "ios",
+                entry.logical_path,
+                line_of(text, tag.start()),
+                Confidence.HIGH,
+            )

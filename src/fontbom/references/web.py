@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
+from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 
 from fontbom.inputs.walker import FileEntry
 from fontbom.models import Confidence, Reference
-from fontbom.references.base import Pattern, RegexScanner, emit, line_of, read_text
+from fontbom.references.base import Pattern, RegexScanner, emit, line_of, read_source, strip_quotes
 
 FONT_FACE_BLOCK = re.compile(r"@font-face\s*\{([^}]*)\}", re.IGNORECASE)
 GOOGLE_FONTS_URL = re.compile(r"https?://fonts\.googleapis\.com/[^\s\"'<>)]+", re.IGNORECASE)
 
 FONT_FACE_PATTERNS: tuple[Pattern, ...] = (
+    # The whole value; a comma-separated list is split into families in WebScanner.scan.
     Pattern(
         "font-face",
-        re.compile(r"font-family\s*:\s*(['\"]?)([^;'\"}]+?)\1\s*(?:;|$)", re.IGNORECASE | re.M),
-        build=lambda m: m.group(2),
+        re.compile(r"font-family\s*:\s*([^;}\n]+?)\s*(?:;|$)", re.IGNORECASE | re.M),
     ),
     Pattern(
         "font-face-src",
@@ -32,17 +33,29 @@ class WebScanner(RegexScanner):
     patterns = ()
 
     def scan(self, entry: FileEntry) -> Iterator[Reference]:
-        text = read_text(entry)
+        text = read_source(entry)
         if text is None:
             return
         source = entry.logical_path
         for block in FONT_FACE_BLOCK.finditer(text):
             offset = line_of(text, block.start(1)) - 1
-            yield from emit(FONT_FACE_PATTERNS, block.group(1), source, "web", offset=offset)
+            for reference in emit(FONT_FACE_PATTERNS, block.group(1), source, "web", offset=offset):
+                if reference.kind == "font-face":
+                    yield from _split_families(reference)
+                else:
+                    yield reference
         for url in GOOGLE_FONTS_URL.finditer(text):
             line = line_of(text, url.start())
             for family in google_fonts_families(url.group(0)):
                 yield Reference(family, "google-fonts-url", "web", source, line, Confidence.HIGH)
+
+
+def _split_families(reference: Reference) -> Iterator[Reference]:
+    """Yield one reference per family in a comma-separated font-family value."""
+    for part in reference.name.split(","):
+        family = strip_quotes(part)
+        if family:
+            yield replace(reference, name=family)
 
 
 def google_fonts_families(url: str) -> list[str]:

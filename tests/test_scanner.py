@@ -116,3 +116,25 @@ def test_jobs_option_is_accepted_and_results_are_unchanged(tmp_path: Path) -> No
     serial = scan(tmp_path / "App.ipa", ScanOptions(jobs=1))
     parallel = scan(tmp_path / "App.ipa", ScanOptions(jobs=4))
     assert serial.fonts[0].references == parallel.fonts[0].references
+
+
+def test_font_name_kept_in_a_constant_references_the_font(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "repo",
+        {
+            "App/Fonts/BrandSans-Bold.otf": make_font(family="Brand Sans", style="Bold"),
+            "App/Fonts/BrandSans-Light.otf": make_font(family="Brand Sans Light", style="Regular"),
+            "App/Theme.swift": (
+                'enum FontName: String { case bold = "BrandSans-Bold" }\n'
+                "let title = UIFont(name: FontName.bold.rawValue, size: 17)\n"
+            ),
+            "App/Legacy.swift": 'let light = UIFont(name: "BrandSansLight-Regular", size: 12)\n',
+        },
+    )
+    result = scan(root, ScanOptions())
+    by_family = {r.primary.family: r for r in result.fonts}
+    bold = by_family["Brand Sans"].references
+    assert [(r.kind, r.source, r.line) for r in bold] == [("string-literal", "App/Theme.swift", 1)]
+    # A name already found by a source pattern on the same line is not counted twice.
+    light = by_family["Brand Sans Light"].references
+    assert [r.kind for r in light] == ["uifont"]

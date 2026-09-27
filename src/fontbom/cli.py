@@ -69,6 +69,13 @@ def main() -> None:
     show_default=True,
     help="Maximum number of archive members.",
 )
+@click.option(
+    "--exclude",
+    multiple=True,
+    metavar="PATTERN",
+    help="Skip files and directories matching a shell-style pattern. Without '/' it matches a "
+    "name at any depth (Pods, *.tmp); with '/' it matches the path under PATH. Repeatable.",
+)
 @click.option("--no-references", is_flag=True, help="Skip code reference scanning.")
 @click.option(
     "-j",
@@ -92,6 +99,7 @@ def scan_command(
     max_depth: int,
     max_bytes: int,
     max_entries: int,
+    exclude: tuple[str, ...],
     no_references: bool,
     jobs: int,
     progress: bool | None,
@@ -106,6 +114,7 @@ def scan_command(
         limits=Limits(max_depth=max_depth, max_total_bytes=max_bytes, max_entries=max_entries),
         references=not no_references,
         jobs=jobs,
+        exclude=exclude,
     )
     show_progress = not quiet and (progress if progress is not None else sys.stderr.isatty())
     status = StatusLine(sys.stderr) if show_progress else None

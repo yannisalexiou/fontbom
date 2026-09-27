@@ -11,6 +11,7 @@ import click
 
 from fontbom.models import FontRecord, Reference, ScanResult, Status
 from fontbom.report.disclaimer import TEXT as DISCLAIMER
+from fontbom.report.escaping import for_terminal
 
 INDENT = "  "
 GAP = "  "
@@ -24,6 +25,7 @@ STATUS_COLORS: dict[Status, str] = {
 
 
 def render_terminal(result: ScanResult, width: int | None = None, color: bool = False) -> str:
+    result = for_terminal(result)
     width = width or shutil.get_terminal_size((100, 24)).columns
     paint = _Painter(color)
     summary = result.summary

@@ -93,3 +93,26 @@ def test_accepts_only_ios_source_files(tmp_path: Path) -> None:
         assert scanner.accepts(entry(tmp_path, name, "")), name
     for name in ["a.kt", "a.py", "a.ttf", "README.md"]:
         assert not scanner.accepts(entry(tmp_path, name, "")), name
+
+
+def test_font_file_names_with_spaces(tmp_path: Path) -> None:
+    swift = 'let path = "Fonts/Font Awesome 6 Free-Solid-900.otf"\n'
+    refs = list(IOSScanner().scan(entry(tmp_path, "App/Icons.swift", swift)))
+    assert names(refs) == ["Fonts/Font Awesome 6 Free-Solid-900.otf"]
+    assert refs[0].kind == "font-file-literal"
+
+
+def test_storyboard_runtime_attribute_font_names(tmp_path: Path) -> None:
+    xml = """<?xml version="1.0"?><document>
+<label customClass="BrandLabel"><userDefinedRuntimeAttributes>
+<userDefinedRuntimeAttribute type="string" keyPath="fontName" value="Roboto-Bold"/>
+<userDefinedRuntimeAttribute type="string" keyPath="customFontName" value="Lato-Regular"/>
+<userDefinedRuntimeAttribute keyPath="titleFontFamily" type="string" value="Inter"/>
+<userDefinedRuntimeAttribute type="number" keyPath="fontSize"><real key="value" value="14"/></userDefinedRuntimeAttribute>
+<userDefinedRuntimeAttribute type="string" keyPath="fontColorName" value="Blue"/>
+</userDefinedRuntimeAttributes></label>
+</document>"""
+    refs = list(IOSScanner().scan(entry(tmp_path, "Base.lproj/Main.storyboard", xml)))
+    assert names(refs) == ["Inter", "Lato-Regular", "Roboto-Bold"]
+    assert {r.kind for r in refs} == {"ib-runtime-attribute"}
+    assert next(r for r in refs if r.name == "Roboto-Bold").line == 3

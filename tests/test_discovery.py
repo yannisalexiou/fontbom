@@ -54,6 +54,32 @@ def test_corrupt_font_file_is_recorded_with_error(tmp_path: Path) -> None:
     assert record.faces[0].errors
 
 
+NOT_A_FONT = b"\x00\x01\x00\x00" + bytes(4092)  # TrueType magic, then an empty table directory
+
+
+def test_files_that_only_start_like_fonts_are_not_reported(tmp_path: Path) -> None:
+    # Real cases: Kotlin incremental-compile caches, an Android gesture library, Core ML weights,
+    # and text files that begin with "true".
+    root = write_tree(
+        tmp_path / "repo",
+        {
+            "build/kotlin/caches/id-to-file.tab.keystream": NOT_A_FONT,
+            "res/raw/gestures": b"\x00\x01\x00\x00\x00\x04" + bytes(range(256)) * 4,
+            "config/flag": b"true\n",
+            "assets/blob.dat": make_font(family="Hidden"),
+        },
+    )
+    records = discover_fonts(walk(root, Limits(), tmp_path / "work"))
+    assert [r.paths for r in records] == [["assets/blob.dat"]]
+
+
+def test_font_named_file_without_font_tables_is_recorded_with_error(tmp_path: Path) -> None:
+    root = write_tree(tmp_path / "repo", {"Empty.ttf": NOT_A_FONT})
+    (record,) = discover_fonts(walk(root, Limits(), tmp_path / "work"))
+    assert record.paths == ["Empty.ttf"]
+    assert record.faces[0].errors
+
+
 def test_collection_record_carries_all_faces(tmp_path: Path) -> None:
     ttc = make_collection([make_font(family="One"), make_font(family="Two")])
     root = write_tree(tmp_path / "repo", {"Pack.ttc": ttc})

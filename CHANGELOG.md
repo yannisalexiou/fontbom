@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Reports neutralise font metadata, paths and reference names, which come from the scanned files.
+  CSV cells that would start a formula get a leading `'`. Markdown escapes HTML, links, table pipes
+  and code-span backticks. The terminal report and CSV show control characters as `\xNN` instead
+  of passing escape sequences through.
+
+### Added
+
+- `--exclude PATTERN`, repeatable. A pattern without `/` matches a name at any depth, one with
+  `/` matches the path under the scanned directory.
+- Font names kept in constants: quoted strings that equal a discovered font's family, full,
+  PostScript or file name count as references (`string-literal`).
+- Storyboard and xib user-defined runtime attributes whose key path ends in `fontName` or
+  `fontFamily` (`ib-runtime-attribute`).
+- Android font file paths as XML text, the Calligraphy style form (`font-file-text`).
+
+### Changed
+
+- Directory scans skip the SwiftPM caches `.build/index-build` and `.build/repositories`.
+- Files without a font extension count as fonts only if they parse with `head` and `name` tables.
+- Source files are checked for a font-related marker before they are decoded and matched, which
+  makes scans of large working trees faster.
+
+### Fixed
+
+- Kotlin compile caches, Android gesture files, Core ML weights and other files that start with
+  font magic bytes were reported as fonts with no names and no error.
+- Quoted font file names containing spaces were never matched. Such names now link to bundled
+  fonts; when nothing matches they are not reported as missing, since they are often messages.
+- iOS built-in fonts named by weight (`HelveticaNeue-Bold`), other built-in families such as
+  Avenir Next, and dot-prefixed Apple system names were reported as referenced but not bundled.
+- A comma-separated `font-family` list inside `@font-face` was read as one name.
+- Linking references to fonts was quadratic in the number of references per font.
+
 ## 0.1.0 - 2026-09-24
 
 ### Added

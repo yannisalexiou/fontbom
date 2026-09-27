@@ -13,6 +13,19 @@ from fontbom.models import Confidence, Reference
 
 MAX_TEXT_BYTES = 5 * 1024 * 1024
 FONT_EXTENSION_GROUP = r"(?:ttf|otf|ttc|otc|woff2?)"
+# At least one of these, in any case, appears in every text that a source pattern can match.
+# Lowercasing once and searching for each is faster than a case-insensitive regex alternation.
+REFERENCE_MARKERS: tuple[bytes, ...] = (
+    b"font",
+    b".custom(",
+    b"forresource",
+    b"createfromasset",
+    b".ttf",
+    b".otf",
+    b".ttc",
+    b".otc",
+    b".woff",
+)
 
 
 class Scanner(Protocol):
@@ -33,11 +46,35 @@ class Pattern:
         return self.build(match) if self.build else match.group(1)
 
 
+# A quoted font file name such as "fonts/Example Sans Bold.ttf". Spaces are allowed because font
+# file names often contain them; references.match keeps spaced names that match no bundled font
+# out of the not-bundled list, since such strings are often messages.
+FONT_FILE_LITERAL = Pattern(
+    "font-file-literal",
+    re.compile(rf"\"([^\"\n]+\.{FONT_EXTENSION_GROUP})\"", re.IGNORECASE),
+)
+
+
 def read_text(entry: FileEntry) -> str | None:
     """Decode a source file, or return None when it is too large to be source."""
     if entry.size > MAX_TEXT_BYTES:
         return None
     return entry.read().decode("utf-8", errors="replace")
+
+
+def read_source(entry: FileEntry) -> str | None:
+    """Decode a source file that could name a font, or return None.
+
+    Every source pattern needs one of REFERENCE_MARKERS, so one byte search decides whether the
+    decode and the pattern passes are worth doing. In working trees most files fail it.
+    """
+    if entry.size > MAX_TEXT_BYTES:
+        return None
+    data = entry.read()
+    lowered = data.lower()
+    if not any(marker in lowered for marker in REFERENCE_MARKERS):
+        return None
+    return data.decode("utf-8", errors="replace")
 
 
 def line_of(text: str, position: int) -> int:
@@ -62,7 +99,7 @@ class RegexScanner:
         return PurePosixPath(entry.logical_path).suffix.lower() in self.extensions
 
     def scan(self, entry: FileEntry) -> Iterator[Reference]:
-        text = read_text(entry)
+        text = read_source(entry)
         if text is None:
             return
         yield from self.scan_text(text, entry.logical_path)

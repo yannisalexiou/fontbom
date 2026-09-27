@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 
 from fontbom.fonts.detect import FontFormat
 from fontbom.fonts.metadata import read_faces
@@ -91,6 +92,20 @@ def test_same_reference_is_attached_once() -> None:
     assert len(rec.references) == 1
 
 
+def test_linking_thousands_of_references_to_one_font_stays_fast() -> None:
+    # A storyboard-heavy app links thousands of references to each font. Removing duplicates
+    # with a list lookup made this quadratic: seconds here, half the scan time in real apps.
+    rec = record("fonts/x.ttf", family="Busy")
+    refs = [
+        Reference("Busy", "storyboard", "ios", f"View{i}.xib", 1, Confidence.HIGH)
+        for i in range(5_000)
+    ]
+    start = time.perf_counter()
+    link([rec], refs + refs)
+    assert time.perf_counter() - start < 1.0
+    assert len(rec.references) == 5_000
+
+
 def test_common_web_and_platform_font_stacks_are_not_reported_as_unbundled() -> None:
     stack = [
         "-apple-system", "BlinkMacSystemFont", "Segoe UI", "system-ui", "ui-sans-serif",
@@ -99,3 +114,50 @@ def test_common_web_and_platform_font_stacks_are_not_reported_as_unbundled() -> 
     ]  # fmt: skip
     refs = [ref(name, "web", "font-face") for name in stack] + [ref("Custom Face", "web")]
     assert [r.name for r in link([], refs)] == ["Custom Face"]
+
+
+def test_file_name_with_spaces_links_to_bundled_font() -> None:
+    rec = record("fonts/Example Sans Bold.ttf", family="Example Sans", style="Bold")
+    literal = ref("fonts/Example Sans Bold.ttf", "android", "font-file-literal")
+    assert link([rec], [literal]) == []
+    assert rec.references == [literal]
+
+
+def test_unmatched_quoted_string_with_spaces_is_not_reported_as_missing() -> None:
+    # Quoted strings ending in .ttf that contain spaces are often messages, not file names.
+    message = ref("Could not load Brand.ttf", "ios", "font-file-literal")
+    missing_file = ref("fonts/Brand-Bold.ttf", "ios", "font-file-literal")
+    missing_plist_entry = ref("Brand Bold.ttf", "ios", "uiappfonts")
+    assert [r.name for r in link([], [message, missing_file, missing_plist_entry])] == [
+        "Brand Bold.ttf",
+        "fonts/Brand-Bold.ttf",
+    ]
+
+
+def test_unmatched_xml_text_with_spaces_is_not_reported_as_missing() -> None:
+    message = ref("Download Brand.ttf", "android", "font-file-text")
+    missing = ref("fonts/Brand-Bold.ttf", "android", "font-file-text")
+    assert [r.name for r in link([], [message, missing])] == ["fonts/Brand-Bold.ttf"]
+
+
+def test_ios_built_in_fonts_are_not_reported_as_unbundled() -> None:
+    refs = [
+        ref("HelveticaNeue-Bold", kind="storyboard"),
+        ref("Avenir Next", kind="storyboard"),
+        ref("AvenirNext-DemiBoldItalic"),
+        ref("Arial-BoldMT"),
+        ref("TimesNewRomanPSMT"),
+        ref("Georgia-Italic", "web", "font-face"),
+        ref(".AppleSystemUIFont", kind="storyboard"),
+        ref(".SFUI-Semibold"),
+        # Commercial families whose names start with a built-in family are still reported.
+        ref("Futura PT"),
+        ref("FuturaPT-Book"),
+        ref("Avenir Next LT Pro"),
+    ]
+    assert [r.name for r in link([], refs)] == ["Avenir Next LT Pro", "Futura PT", "FuturaPT-Book"]
+
+
+def test_ios_built_in_families_are_still_missing_on_android() -> None:
+    missing = ref("Avenir Next", "android", "font-family-attr")
+    assert link([], [missing]) == [missing]

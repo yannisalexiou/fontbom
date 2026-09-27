@@ -34,7 +34,14 @@ input path
 `inputs.walker.walk(path, limits)` yields `FileEntry` objects for every regular file reachable
 from `path`.
 
-- A directory is walked recursively. Symlinks are not followed.
+- A directory is walked recursively. Symlinks are not followed. `.git` is skipped, and so are
+  the SwiftPM caches `.build/index-build` (SourceKit-LSP index builds) and `.build/repositories`
+  (bare clones of dependencies), which never hold anything that ships. `.build/checkouts` and
+  `.build/artifacts` are walked, because dependency fonts and binaries that ship live there. In
+  the 2026-09 field test these caches held 95% of the bytes of two iOS working trees.
+- `--exclude PATTERN` (repeatable) skips more. A pattern without `/` matches a file or directory
+  name at any depth; a pattern with `/` matches the logical path, `!/` separators included.
+  Excluded directories are not entered and excluded archives are not opened.
 - Directory bundles (`.app`, `.xcframework`, `.framework`, `.bundle`) are plain directories.
 - Zip-family archives (`.ipa`, `.apk`, `.aab`, `.aar`, `.jar`, `.zip`) are opened with
   `zipfile`. Members are extracted to a scan-scoped temporary directory that is deleted when the
@@ -64,6 +71,11 @@ from `path`.
 
 Files with a font extension whose magic does not match are still passed to metadata extraction
 and fail there with a recorded error. Files with no font extension and no magic are skipped.
+
+Every font has a `head` and a `name` table; a face without either gets an error. A file found
+only by its magic bytes is reported only if at least one face parses without error, because
+Kotlin incremental-compile caches, Android gesture libraries and Core ML weights can start with
+`00 01 00 00`, and text files can start with `true`.
 
 ## Metadata
 
@@ -171,12 +183,19 @@ string match.
 
 | module          | files                          | patterns                                                                 |
 |-----------------|--------------------------------|--------------------------------------------------------------------------|
-| ios.py          | `.swift .m .mm .h .plist .storyboard .xib` | `UIFont(name: "X"`, `UIFont.init(name:`, `fontWithName:@"X"`, `Font.custom("X"`, `UIAppFonts` array entries, `CTFontManagerRegister*` file names, `customFontName="X"` in storyboards |
-| android.py      | `.kt .java .xml`               | `res/font/*.ttf` file names, `@font/x`, `android:fontFamily="x"`, `app:fontFamily`, `Typeface.createFromAsset(…, "fonts/X.ttf")`, `ResourcesCompat.getFont`, `FontFamily(Font(R.font.x))` |
+| ios.py          | `.swift .m .mm .h .plist .storyboard .xib` | `UIFont(name: "X"`, `UIFont.init(name:`, `fontWithName:@"X"`, `Font.custom("X"`, `UIAppFonts` array entries, `CTFontManagerRegister*` file names, storyboard `fontDescription` and `userDefinedRuntimeAttribute` strings whose key path ends in `fontName` or `fontFamily` (such as `customFontName`) |
+| android.py      | `.kt .java .xml`               | `res/font/*.ttf` file names, `@font/x`, `android:fontFamily="x"`, `app:fontFamily`, `Typeface.createFromAsset(…, "fonts/X.ttf")`, `ResourcesCompat.getFont`, `FontFamily(Font(R.font.x))`, font file paths as XML text (`<item name="fontPath">fonts/X.ttf</item>`) |
 | flutter.py      | `pubspec.yaml`                 | `fonts:` block: `family:` and `asset:` entries                            |
 | react_native.py | `.js .jsx .ts .tsx react-native.config.js package.json` | `require('…/X.ttf')`, `fontFamily: 'X'`, `assets: ['./assets/fonts']` |
 | web.py          | `.css .scss .html`             | `@font-face { font-family: "X"; src: url(…) }`, `fonts.googleapis.com/css?family=X` and `css2?family=X` (parsed only) |
 | binary.py       | Mach-O executables, `.dex`, `resources.arsc`, `.so` | presence of each bundled font's family, full and PostScript name as ASCII or UTF-16LE bytes |
+| literals.py     | files a source scanner accepts, except plists and IB files | quoted strings equal, after normalisation, to a discovered font's family, full, PostScript or file name (4+ characters), such as a name kept in a constant |
+
+Quoted font file names may contain spaces. Before decoding a file, `base.read_source` checks for
+one byte marker that every source pattern needs (`font`, `.custom(`, `forResource`,
+`createFromAsset` or a font extension); files without one are skipped. `literals.py` runs after
+discovery, like the binary search, and skips a line a source pattern already covered for the same
+name.
 
 `references.match.link(fonts, references)` normalises names (lowercase, strip spaces, hyphens
 and underscores, drop a trailing file extension) and matches against family (1), full name (4),
@@ -185,7 +204,13 @@ PostScript name (6) and typographic family (16). Results:
 - `record.references` and `record.referenced` for bundled fonts.
 - `ScanResult.unbundled_references`: references whose name matched no bundled font. Generic
   system font names (`System`, `Helvetica`, `Roboto`, `sans-serif`, `monospace`, and the CSS
-  generics) are filtered out with a small allowlist so they do not appear as missing fonts.
+  generics) are filtered out with a small allowlist so they do not appear as missing fonts. For
+  iOS and web references the iOS built-in families count too, alone or followed only by style
+  words (`HelveticaNeue-Bold`, `Arial-BoldMT`, but not `Futura PT`), as do Apple's dot-prefixed
+  private names. A `font-file-literal` or `font-file-text` name that contains whitespace links
+  but is never listed as missing, because such strings are often messages.
+- Duplicate references are removed with a set per record; a list lookup made linking quadratic
+  and cost half the scan time in a storyboard-heavy app.
 
 Binary scanning only runs for fonts already discovered, so it can never introduce a reference
 to an unbundled font.
@@ -224,12 +249,18 @@ Every reporter takes a `ScanResult` and returns a string. Every output includes
 - Markdown: summary table, one table of fonts, a section for unreferenced bundled fonts, a
   section for referenced-but-unbundled names, and the disclaimer at the end.
 
+Font metadata, paths and reference names are untrusted. `report/escaping.py` neutralises them
+per format. CSV cells that would start a formula (`=`, `+`, `-`, `@`) get a leading `'`.
+Markdown turns `&`, `<` and `>` into entities, puts a backslash before backslashes, backticks,
+square brackets and pipes, and gives each code span a fence longer than any backtick run inside
+it. The terminal report and CSV show control characters as `\xNN`. JSON needs nothing.
+
 ## CLI
 
 ```
 fontbom scan PATH [--format terminal|json|csv|markdown] [--output FILE]
                   [--fail-on STATUS[,STATUS...]] [--max-depth N] [--max-bytes N]
-                  [--max-entries N] [--no-references] [--jobs N]
+                  [--max-entries N] [--exclude PATTERN ...] [--no-references] [--jobs N]
                   [--progress|--no-progress] [--quiet]
 fontbom --version
 ```

@@ -22,7 +22,7 @@ PUBSPEC_NAMES = frozenset({"pubspec.yaml", "pubspec.yml"})
 PUBSPEC_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("pubspec-family", re.compile(r"^\s*-?\s*family:\s*(.+?)\s*$")),
     ("pubspec-asset", re.compile(r"^\s*-?\s*asset:\s*(.+?)\s*$")),
-    ("pubspec-asset", re.compile(rf"^\s*-\s*(\S+\.{FONT_EXTENSION_GROUP})\s*$", re.IGNORECASE)),
+    ("pubspec-asset", re.compile(rf"^\s*-\s*(.+?\.{FONT_EXTENSION_GROUP})\s*$", re.IGNORECASE)),
 )
 
 

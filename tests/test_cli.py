@@ -214,3 +214,19 @@ def test_terminal_format_to_file_has_no_ansi(tmp_path: Path) -> None:
 def test_default_format_is_json_when_stdout_is_not_a_terminal(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["scan", str(ipa(tmp_path))])
     assert json.loads(result.stdout)["schema_version"] == 1
+
+
+def test_exclude_flag_skips_matching_paths(tmp_path: Path) -> None:
+    root = write_tree(
+        tmp_path / "repo",
+        {
+            "Pods/Vendor/Vendor.ttf": make_font(family="Vendor"),
+            "App/Own.ttf": make_font(family="Own"),
+        },
+    )
+    result = CliRunner().invoke(
+        main, ["scan", str(root), "--exclude", "Pods", "--exclude", "*.tmp", "-f", "json"]
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert [font["paths"] for font in report["fonts"]] == [["App/Own.ttf"]]

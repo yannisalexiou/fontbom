@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -17,11 +18,12 @@ from fontbom.licenses.adjacent import AdjacentFile, find_adjacent, is_license_fi
 from fontbom.licenses.classify import classify
 from fontbom.models import FontRecord, Reference, ScanResult
 from fontbom.references.android import AndroidScanner
-from fontbom.references.base import Scanner
+from fontbom.references.base import MAX_TEXT_BYTES, Scanner
 from fontbom.references.binary import scan_binaries
 from fontbom.references.flutter import FlutterScanner
 from fontbom.references.ios import IOSScanner
-from fontbom.references.match import NAME_IDS_FOR_MATCHING, link
+from fontbom.references.literals import LiteralScanner
+from fontbom.references.match import NAME_IDS_FOR_MATCHING, link, normalize, record_keys
 from fontbom.references.react_native import ReactNativeScanner
 from fontbom.references.web import WebScanner
 
@@ -37,6 +39,7 @@ class ScanOptions:
     limits: Limits = field(default_factory=Limits)
     references: bool = True
     jobs: int = field(default_factory=default_jobs)
+    exclude: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -67,7 +70,7 @@ def scan(
     report = on_progress or (lambda _: None)
     with tempfile.TemporaryDirectory(prefix="fontbom-") as workdir:
         entries: list[FileEntry] = []
-        for entry in walk(path, options.limits, Path(workdir)):
+        for entry in walk(path, options.limits, Path(workdir), options.exclude):
             entries.append(entry)
             report(Progress("walking", len(entries), 0, entry.logical_path))
         records = discover_fonts(entries)
@@ -122,11 +125,24 @@ def _cross_reference(
 ) -> list[Reference]:
     references: list[Reference] = []
     scanners = source_scanners()
+    literals = LiteralScanner(key for record in records for key in record_keys(record))
     for entry in entries:
         on_file(entry.logical_path)
-        for scanner in scanners:
-            if scanner.accepts(entry):
-                references.extend(scanner.scan(entry))
+        accepting = [scanner for scanner in scanners if scanner.accepts(entry)]
+        if not accepting:
+            continue
+        # Source scanners and the literal pass read the same file; hold it for one disk read.
+        with entry.held() if entry.size <= MAX_TEXT_BYTES else nullcontext():
+            found = [reference for scanner in accepting for reference in scanner.scan(entry)]
+            references.extend(found)
+            if literals.accepts(entry):
+                # A line a source pattern already covered for the same name is not counted twice.
+                covered = {(r.line, normalize(r.name)) for r in found}
+                references.extend(
+                    r
+                    for r in literals.scan(entry, accepting[0].ecosystem)
+                    if (r.line, normalize(r.name)) not in covered
+                )
     names = {
         face.names[name_id]
         for record in records

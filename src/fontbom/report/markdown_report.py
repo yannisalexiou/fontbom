@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fontbom.models import FontRecord, ScanResult, Status
 from fontbom.report.disclaimer import TEXT as DISCLAIMER
+from fontbom.report.escaping import markdown_code, markdown_text
 
 FLAGGED = {Status.COMMERCIAL, Status.RESTRICTED, Status.UNKNOWN}
 
@@ -13,7 +14,7 @@ def render_markdown(result: ScanResult) -> str:
     lines = [
         "# fontbom report",
         "",
-        f"- Input: `{result.input}`",
+        f"- Input: {markdown_code(result.input, in_table=False)}",
         f"- Scanned: {result.scanned_at}",
         f"- Tool: {result.tool}",
         "",
@@ -49,7 +50,7 @@ def render_markdown(result: ScanResult) -> str:
         )
         lines.append("")
         lines.extend(
-            f"- {_family(record)} (`{record.primary.postscript_name or '?'}`), "
+            f"- {_family(record)} ({markdown_code(record.primary.postscript_name or '?')}), "
             f"sha256 `{record.sha256[:12]}…`"
             for record in unreferenced
         )
@@ -61,7 +62,10 @@ def render_markdown(result: ScanResult) -> str:
         lines.extend(["| Name | Ecosystem | Kind | Source |", "| --- | --- | --- | --- |"])
         for ref in result.unbundled_references:
             location = f"{ref.source}:{ref.line}" if ref.line is not None else ref.source
-            lines.append(f"| {_cell(ref.name)} | {ref.ecosystem} | {ref.kind} | `{location}` |")
+            lines.append(
+                f"| {markdown_text(ref.name)} | {ref.ecosystem} | {ref.kind} "
+                f"| {markdown_code(location)} |"
+            )
     else:
         lines.append("None.")
 
@@ -74,18 +78,15 @@ def _font_row(record: FontRecord) -> str:
     status = record.license.status
     status_cell = f"**{status.value}**" if status in FLAGGED else status.value
     referenced = f"yes ({len(record.references)})" if record.referenced else "no"
-    evidence = ", ".join(dict.fromkeys(e.source for e in record.license.evidence)) or "—"
-    paths = "<br>".join(f"`{path}`" for path in record.paths)
+    sources = dict.fromkeys(e.source for e in record.license.evidence)
+    evidence = ", ".join(markdown_text(source) for source in sources) or "—"
+    paths = "<br>".join(markdown_code(path) for path in record.paths)
     return (
-        f"| {_family(record)} | `{face.postscript_name or '?'}` | {status_cell} | "
+        f"| {_family(record)} | {markdown_code(face.postscript_name or '?')} | {status_cell} | "
         f"{record.license.spdx or '—'} | {record.license.embedding.value} | {referenced} | "
         f"{evidence} | {paths} |"
     )
 
 
 def _family(record: FontRecord) -> str:
-    return _cell(record.primary.family or record.paths[0].rsplit("/", 1)[-1])
-
-
-def _cell(text: str) -> str:
-    return text.replace("|", "\\|").replace("\n", " ")
+    return markdown_text(record.primary.family or record.paths[0].rsplit("/", 1)[-1])

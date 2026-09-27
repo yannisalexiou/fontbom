@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 
 import pytest
 
@@ -148,3 +149,58 @@ def test_markdown_matches_golden() -> None:
 def test_unknown_format_is_rejected() -> None:
     with pytest.raises(ValueError, match="format"):
         render(fixed_result(), "xml")
+
+
+# Font metadata and paths come from untrusted files. Each format must neutralise what is
+# dangerous in it: formulas in CSV, HTML/links/code-span breakouts in Markdown, escape
+# sequences on a terminal.
+FORMULA = '=HYPERLINK("http://x.example","open")'
+
+
+def hostile_result() -> ScanResult:
+    face = FontFace(
+        index=0,
+        format=FontFormat.TRUETYPE,
+        names={
+            1: FORMULA + " <img src=x onerror=alert(1)> [docs](javascript:alert(1))\n# Owned",
+            4: "Evil Full\x1b]8;;http://x.example\x07Name\x1b[2J",
+            6: "Evil`Name",
+        },
+    )
+    record = FontRecord(
+        sha256="c" * 64,
+        size=1,
+        format=FontFormat.TRUETYPE,
+        paths=["-cmd.ttf", "Fonts/\x1b]8;;http://x.example\x07Evil.ttf\x1b[2J"],
+        faces=[face],
+    )
+    return ScanResult(
+        tool="fontbom 0.1.0",
+        scanned_at="2026-09-22T12:00:00Z",
+        input="Evil`App.ipa",
+        fonts=[record],
+        unbundled_references=[
+            Reference(
+                "<script>alert(1)</script>", "font-face", "web", "a\x1b[2J.css", 1, Confidence.HIGH
+            )
+        ],
+    )
+
+
+def test_csv_cells_that_a_spreadsheet_would_run_are_neutralised() -> None:
+    out = render(hostile_result(), "csv")
+    body = "\n".join(line for line in out.splitlines() if not line.startswith("#"))
+    (row,) = list(csv.DictReader(io.StringIO(body)))
+    assert row["family"].startswith("'=HYPERLINK(")
+    assert row["paths"].startswith("'-cmd.ttf;")
+    assert row["postscript_name"] == "Evil`Name"
+
+
+def test_markdown_cannot_be_rewritten_by_font_metadata() -> None:
+    out = render(hostile_result(), "markdown")
+    assert "<img" not in out
+    assert "<script" not in out
+    assert re.search(r"(?<!\\)\]\(javascript:", out) is None  # escaped brackets form no link
+    assert "\n# Owned" not in out
+    assert "``Evil`Name``" in out  # the code span fence is longer than any backtick run inside
+    assert "``Evil`App.ipa``" in out
