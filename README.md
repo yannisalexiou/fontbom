@@ -43,7 +43,7 @@ without `/` matches a file or directory name at any depth, one with `/` matches 
 scanned directory:
 
 ```
-fontbom scan . --exclude Pods --exclude 'app/build/*'
+fontbom scan . --exclude '*Tests' --exclude 'docs/*'
 ```
 
 Exit codes:

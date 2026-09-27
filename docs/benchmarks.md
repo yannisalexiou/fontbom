@@ -1,8 +1,8 @@
 # Benchmarks
 
-Before its first announcement, fontbom 0.1.0 was run on nine production mobile codebases, five
-iOS and four Android, and on two apps built from them. This page reports how long each scan took
-and how its findings compared with an independent check.
+Before its first announcement, fontbom was run on nine production mobile codebases, five iOS and
+four Android, and on two apps built from them. The first run, on 0.1.0, found bugs; 0.1.1 fixes
+them, and this page reports 0.1.1. [Changes since 0.1.0](#changes-since-010) compares the two.
 
 The codebases are private. They are named A to I, counts are rounded, and no font, file, module
 or company names appear. Readers cannot reproduce these exact numbers; the
@@ -10,20 +10,18 @@ or company names appear. Readers cannot reproduce these exact numbers; the
 
 ## Summary
 
-- Clean checkouts of up to 11,000 files scan in under 5 seconds. The largest working tree, 1.5
-  million files and 113 GB including SwiftPM build caches, scans in 9 minutes 39 seconds with
-  1.6 GB of memory.
-- No font file was missed in 21 checked scans covering 750 font paths. In two Android codebases
-  the only fonts were inside a vendored `.aar`, which a search by file extension does not open.
-  Three kinds of file that are not fonts, at 14 paths, were reported as fonts.
-- In the clean checkouts, every font marked as referenced was confirmed, 57 of 57. Six font files
-  in a codebase more than ten years old are referenced nowhere, and fontbom reported all six as
-  unreferenced.
+- Clean checkouts of up to 11,000 files scan in under 2 seconds. The largest working tree, 1.6
+  million files including SwiftPM build caches, scans in 3 minutes 34 seconds with 0.9 GB of
+  memory; 0.1.0 needed 9 minutes 39 seconds and 1.6 GB.
+- No font file was missed in 21 checked scans covering 451 font paths, and nothing that is not a
+  font was reported. In two Android codebases the only fonts were inside a vendored `.aar`, which a
+  search by file extension does not open.
+- fontbom found 5,087 of the 5,090 source lines that name a bundled font. In the clean checkouts
+  every font marked as referenced was confirmed, 58 of 58. Six font files in a codebase more than
+  ten years old are referenced nowhere, and fontbom reported all six as unreferenced.
 - fontbom found real problems: storyboards set in a font family that the app never ships, a font
   requested from Swift that is not bundled, a storyboard weight missing from an otherwise bundled
   family, and web-view HTML that points at font files which are not bundled.
-- The test also exposed gaps. They are listed under [Limitations found](#limitations-found), and
-  each one is tracked for a fix.
 
 ## The codebases
 
@@ -45,12 +43,13 @@ dependencies.
 ## Setup
 
 - Apple M5 (4 performance and 6 efficiency cores), 24 GB RAM, internal SSD, macOS 26.6.
-- Python 3.12.14, fontbom 0.1.0 (commit `4bc77e2`), fontTools 4.65.0.
+- Python 3.12.14, fontbom 0.1.1 (code at commit `d3112f4`), fontTools 4.65.0.
 - Command: `fontbom scan <target> --format json --output report.json --no-progress`, timed with
   `/usr/bin/time -l`, default `--jobs` (10).
 - Each target ran four times. The first run warmed the file cache; the tables show the median of
-  the other three. The two largest working trees ran once. They are larger than RAM, so those
-  runs read from disk.
+  the other three. The two largest working trees ran once.
+- 0.1.0 was measured the same way on 2026-09-24, and 0.1.1 on 2026-09-27, with the same clean
+  checkout commits and the same built apps.
 
 Three kinds of target:
 
@@ -69,15 +68,15 @@ is the maximum resident set size of the main process.
 
 | Codebase | Files | Size | Time | Peak memory | Fonts (paths) |
 | -------- | ----: | ---: | ---: | ----------: | ------------- |
-| A | 11,400 | 330 MB | 4.3 s | 122 MB | 8 (12) |
-| B | 750 | 14 MB | 0.13 s | 35 MB | 20 |
-| C | 1,300 | 24 MB | 0.19 s | 32 MB | none |
-| D | 9,500 | 490 MB | 0.95 s | 44 MB | none |
-| E | 1,100 | 8 MB | 0.15 s | 31 MB | none |
-| F | 11,000 | 170 MB | 1.5 s | 66 MB | 16 (24), plus a non-font (1 path) |
-| G | 1,100 | 13 MB | 0.17 s | 35 MB | 20 |
-| H | 10,300 | 77 MB | 1.7 s | 55 MB | 4, inside a vendored `.aar` |
-| I | 3,700 | 32 MB | 0.75 s | 45 MB | 4, inside a vendored `.aar` |
+| A | 11,400 | 330 MB | 1.9 s | 128 MB | 8 (12) |
+| B | 750 | 14 MB | 0.12 s | 35 MB | 20 |
+| C | 1,300 | 24 MB | 0.15 s | 32 MB | none |
+| D | 9,500 | 490 MB | 0.77 s | 44 MB | none |
+| E | 1,100 | 8 MB | 0.13 s | 31 MB | none |
+| F | 11,000 | 170 MB | 1.6 s | 66 MB | 16 (24) |
+| G | 1,100 | 13 MB | 0.15 s | 35 MB | 20 |
+| H | 10,300 | 77 MB | 1.6 s | 55 MB | 4, inside a vendored `.aar` |
+| I | 3,700 | 32 MB | 0.77 s | 45 MB | 4, inside a vendored `.aar` |
 
 Codebases C, D and E contain no font files. D and E get their fonts from Swift packages, which
 appear in their working trees' SwiftPM caches and in the built app below. C's source names no
@@ -90,24 +89,25 @@ checkouts.
 
 | Codebase | Files | Size | Time | Peak memory | Fonts (paths) | Binaries searched |
 | -------- | ----: | ---: | ---: | ----------: | ------------- | ----------------: |
-| A | 18,600 | 1.2 GB | 5.4 s | 179 MB | 8 (12) | 815 MB |
-| D | 1,470,000 | 113 GB | 9 min 39 s | 1.6 GB | 24 (315), plus a non-font (7 paths) | 30 GB |
-| E | 827,000 | 79 GB | 5 min 10 s | 1.2 GB | 10 (249) | 19.7 GB |
-| H | 18,300 | 125 MB | 2.4 s | 65 MB | 4, plus a non-font (2 paths) | 26 MB |
-| I | 33,300 | 450 MB | 5.3 s | 117 MB | 4 (8), plus a non-font (4 paths) | 233 MB |
+| A | 18,600 | 1.2 GB | 2.8 s | 179 MB | 8 (12) | 815 MB |
+| D | 626,000 | 27 GB | 3 min 34 s | 0.9 GB | 24 (155) | 14.5 GB |
+| E | 220,000 | 13 GB | 1 min 8 s | 0.33 GB | 10 (110) | 7.1 GB |
+| H | 18,300 | 125 MB | 2.5 s | 64 MB | 4 | 26 MB |
+| I | 33,300 | 450 MB | 5.3 s | 119 MB | 4 (8) | 233 MB |
 
-In D and E, SwiftPM caches (`.build/checkouts`, `.build/index-build`, `.build/repositories`,
-`.build/artifacts`) held 95% of the bytes. Every font in those two trees sits in the caches, in 7
-to 25 copies. Deduplication by content reduced 315 paths to 24 fonts in D, and 249 paths to 10
-fonts in E.
+D's working tree holds 1.62 million files and E's 838,000. fontbom 0.1.1 skips the SwiftPM index
+builds and repository mirrors, which hold 983,000 and 617,000 of them and never contain anything
+that ships. Every font in those two trees sits in `.build/checkouts`, where SwiftPM keeps
+dependency sources, in several copies; deduplication by content reduced 155 paths to 24 fonts in
+D, and 110 paths to 10 fonts in E.
 
 ### Built apps
 
 | App | Files | Size | Time | Peak memory | Fonts |
 | --- | ----: | ---: | ---: | ----------: | ----: |
-| iOS `.app` from codebase E | 260 | 154 MB | 0.22 s | 62 MB | 5 |
+| iOS `.app` from codebase E | 260 | 154 MB | 0.21 s | 62 MB | 5 |
 | The same app as `.ipa` (117 MB packed) | 260 | 154 MB | 0.45 s | 67 MB | 5 |
-| Android debug `.apk` from codebase I (42 MB packed) | 2,750 | 86 MB | 0.87 s | 64 MB | 4 |
+| Android debug `.apk` from codebase I (42 MB packed) | 2,750 | 86 MB | 0.86 s | 60 MB | 4 |
 
 ### Where the time goes
 
@@ -115,29 +115,27 @@ A separate instrumented run timed each phase of the two largest scans:
 
 | Phase | D working tree | E working tree |
 | ----- | -------------: | -------------: |
-| Walk the tree and read file headers | 182 s | 103 s |
-| Scan text files for references | 290 s (903,000 files) | 149 s (468,000 files) |
-| Search binaries for font names | 98 s (7,800 files, 30 GB) | 53 s (3,400 files, 19.7 GB) |
-| Detect, parse and classify fonts | 6 s | 4 s |
-| Total | 583 s | 312 s |
+| Walk the tree and read file headers | 78 s | 28 s |
+| Scan text files for references | 95 s (415,000 files) | 20 s (96,000 files) |
+| Search binaries for font names | 46 s (3,700 files, 14.5 GB) | 16 s (890 files, 7.1 GB) |
+| Detect, parse and classify fonts | 2 s | 1 s |
+| Total | 224 s | 66 s |
 
-The text scan, not the binary search, was the slowest phase. In D, 99% of the files it read came
-from the SwiftPM caches. Three quarters were C and Objective-C headers, most of them from index
-builds and binary frameworks. The project's own Swift files were 7,600 of the 903,000.
+Most text files cannot name a font. A byte check skips them before the patterns run, so in D the
+patterns took 23 of the 95 seconds; reading the files and matching names kept in constants took
+the rest.
 
-Only the binary search runs in parallel. With `--jobs 1` the E working tree took 6 minutes 41
-seconds instead of 5 minutes 10 seconds, with identical results. The 91-second difference is all
-in the binary search: 53 seconds with 10 workers, roughly 144 seconds with one.
-
-In codebase A, linking 15,000 references to 8 fonts took 2.2 seconds, about half of the scan,
-because duplicates are removed with a list lookup. See [Limitations found](#limitations-found).
+Only the binary search runs in parallel. With `--jobs 1` the E working tree took 95 seconds
+instead of 68, with identical results. The difference is all in the binary search: 16 seconds with
+10 workers, roughly 44 with one.
 
 ## Accuracy
 
 The check is independent of fontbom's code.
 
 - Font files: every file with a font extension, plus every file that starts with font magic
-  bytes, kept only if fontTools can open it as a font. Archives are opened as fontbom opens them.
+  bytes, kept only if fontTools can open it as a font. Archives are opened as fontbom opens them,
+  and the same folders are skipped.
 - References: every place a discovered font's family, full, PostScript or file name appears as a
   quoted string, an XML attribute or text value, or an `@font/` or `R.font.` resource, in source
   and resource files of the clean checkouts. The check ignores which API receives the name, so it
@@ -148,10 +146,10 @@ The check is independent of fontbom's code.
 | | Result |
 | - | ------ |
 | Scans checked | 21: nine clean checkouts, nine working trees, three built apps |
-| Font paths found by the check | 750 |
+| Font paths found by the check | 451 |
 | Missed by fontbom | 0 |
 | Fonts that failed to parse | 0 |
-| Files reported as fonts that are not fonts | 14 paths of three kinds: an Android gesture library in `res/raw`, Kotlin incremental-compile caches, and a Core ML model's weights |
+| Files reported as fonts that are not fonts | 0 |
 
 ### Referenced or unreferenced
 
@@ -159,49 +157,48 @@ The 72 fonts in the clean checkouts:
 
 | fontbom's verdict | Fonts | What the check found |
 | ----------------- | ----: | -------------------- |
-| Referenced | 57 | All 57 confirmed |
+| Referenced | 58 | All 58 confirmed |
 | Unreferenced | 6 | Confirmed: nothing refers to them |
 | Unreferenced | 8 | Used only through a precompiled design-system library. The app's source never names them, so no text search can see the use |
-| Unreferenced | 1 | Wrong: an Android style item names it as text |
 
 ### Reference styles
 
 Each line of source that names a bundled font, counted once, across the nine clean checkouts:
 
-| Reference style | Lines | Found by fontbom |
-| --------------- | ----: | ---------------: |
-| Interface Builder `fontDescription` | 3,045 | 3,045 |
-| Android `@font/` and `R.font.` | 957 | 957 |
-| `UIFont(name:)`, `fontWithName:` or SwiftUI `.custom` with a string literal | 680 | 680 |
-| `UIAppFonts` in Info.plist | 14 | 14 |
-| Interface Builder user-defined runtime attribute `fontName` | 144 | 0 |
-| Android XML attribute holding a font file path | 134 | 6 |
-| Swift and Objective-C string constants | 50 | 31 |
-| Java and Kotlin string constants | 24 | 21 |
-| Android style item holding a font file path as text | 19 | 0 |
-| Other files: bundled JavaScript, inline CSS in XML strings | 23 | 8 |
-| Total | 5,090 | 4,762 (94%) |
+| Reference style | Lines | Found by 0.1.1 | Found by 0.1.0 |
+| --------------- | ----: | -------------: | -------------: |
+| Interface Builder `fontDescription` | 3,045 | 3,045 | 3,045 |
+| Android `@font/` and `R.font.` | 957 | 957 | 957 |
+| `UIFont(name:)`, `fontWithName:` or SwiftUI `.custom` with a string literal | 680 | 680 | 680 |
+| `UIAppFonts` in Info.plist | 14 | 14 | 14 |
+| Interface Builder user-defined runtime attribute `fontName` | 144 | 144 | 0 |
+| Android XML attribute holding a font file path | 134 | 134 | 6 |
+| Swift and Objective-C string constants | 50 | 49 | 31 |
+| Java and Kotlin string constants | 24 | 24 | 21 |
+| Android style item holding a font file path as text | 19 | 19 | 0 |
+| Other files: bundled JavaScript, inline CSS | 23 | 21 | 8 |
+| Total | 5,090 | 5,087 (99.9%) | 4,762 (94%) |
 
 Interface Builder also writes a `customFonts` list at the end of each storyboard and XIB (1,298
 lines). It repeats the fonts that the file's `fontDescription` elements already name, so it is
-left out of the table.
+left out of the table. The three lines 0.1.1 misses name a font inside inline CSS, such as a
+`style` attribute in HTML.
 
 ### Referenced but not bundled
 
-Four clean checkouts produced 23 names that code references and the checkout does not contain:
+Four clean checkouts produced 19 names that code references and the checkout does not contain:
 
 | What it was | Names |
 | ----------- | ----: |
 | A font family used in storyboards (16 references) that the app never ships | 2 |
 | A font requested from Swift that is not bundled | 1 |
 | A storyboard weight missing from an otherwise bundled family | 1 |
-| Web-view HTML and CSS that point at font files which are not bundled | 13 |
+| Web-view HTML and CSS that point at font files which are not bundled | 14 |
 | A font supplied by a Swift package that the checkout does not contain; the built app has it | 1 |
-| iOS built-in fonts reported as missing (false positives) | 4 |
-| A CSS family list read as a single name (false positive) | 1 |
 
-In the working trees of D and E, the not-bundled list grew to 444 and 223 entries. All but 8 came
-from package sources and index builds inside the SwiftPM caches.
+None of them is a false positive. In the working trees of D and E the list has 0 and 8 entries.
+I's working tree lists 61 entries for 11 names: the same web-view assets, found in the project
+and again in the copies the Android build keeps in its intermediates and in the `.apk`.
 
 ## License status
 
@@ -219,43 +216,55 @@ Across every scan there were 70 distinct fonts, counted once each by content:
 > fontbom reports metadata found inside font files and adjacent license files. It is not legal
 > advice. Verify license terms with the font vendor or your legal team.
 
-## Limitations found
+## Changes since 0.1.0
 
-Each item is tracked for a fix before promotion.
+The 0.1.0 run exposed the problems below. All of them are fixed in 0.1.1.
 
-1. **Files that only look like fonts.** An Android gesture library, Kotlin incremental-compile
-   caches and a Core ML model's weights, 14 paths in all, were reported as fonts. They start with
-   the TrueType magic bytes, parse as an empty font, and are reported with no names and no error.
-   A file found only by its magic bytes should count as a font only when it has the tables every
-   font needs.
-2. **Font file names with spaces.** A quoted path such as `"fonts/Example Sans Bold.ttf"` never
-   matches, because the file-name pattern stops at whitespace. This caused 128 of the 134 missed
-   Android attribute lines.
-3. **Names kept in constants.** A font name assigned to a constant and passed to `UIFont(name:)`
-   or `Typeface` later is linked only when the string is a font file name. 22 of 74 such lines
-   were missed. Scans of built apps find these names inside the compiled binary, at low
-   confidence.
-4. **Interface Builder runtime attributes.** Storyboards that set `fontName` through a
-   user-defined runtime attribute on a custom view are not read (144 lines).
-5. **Android style items with text values.** `<item name="…">fonts/….ttf</item>`, the style form
-   used by the Calligraphy library, is not read. One font was reported unreferenced because of it.
-6. **iOS built-in fonts.** Weight-specific names of built-in families, other built-in families and
-   Apple's dot-prefixed private system names are reported as missing from the bundle.
-7. **CSS family lists.** A comma-separated list inside `@font-face` is read as one name.
-8. **Build caches in working trees.** In D and E, SwiftPM caches supplied 99% of the text files
-   scanned and all but 8 of the not-bundled entries. An `--exclude` option would let users skip
-   them. Index builds (`.build/index-build`) and repository mirrors (`.build/repositories`) never
-   hold anything that ships and could be skipped by default. `.build/checkouts` and
-   `.build/artifacts` have to stay, because shipped dependency fonts and binaries live there.
-9. **Text scan cost.** In the working trees the text scan, not the binary search, is the slowest
-   phase. In D, three quarters of the files it read were headers. A cheap check for font-related
-   text before running the patterns could skip most of them.
-10. **Reference linking.** Removing duplicate references with a list lookup is quadratic in the
-    number of references per font. A set makes it linear.
-11. **Fonts used only through a precompiled library.** They show as unreferenced in source scans.
-    In Android binaries resources are referenced by numeric ID, so an `.apk` scan cannot confirm
-    use either. Reporting these as "use not determinable" would be more accurate than
-    "unreferenced".
+| | 0.1.0 | 0.1.1 |
+| - | ----: | ----: |
+| Clean checkout of A (storyboard-heavy) | 4.3 s | 1.9 s |
+| Working tree of D | 9 min 39 s, 1.6 GB | 3 min 34 s, 0.9 GB |
+| Working tree of E | 5 min 10 s, 1.2 GB | 1 min 8 s, 0.33 GB |
+| Reference lines found | 4,762 of 5,090 (94%) | 5,087 of 5,090 (99.9%) |
+| Fonts wrongly reported unreferenced | 1 | 0 |
+| Files reported as fonts that are not fonts | 14 paths | 0 |
+| False not-bundled names in clean checkouts | 5 | 0 |
+| Not-bundled entries in the working trees of D and E | 667 | 8 |
+
+D's working tree grew between the runs, from 1.47 to 1.62 million files, so its two numbers
+compare the same repository, not identical inputs. The clean checkouts and built apps were
+identical. F's clean checkout went from 1.5 to 1.6 seconds, the cost of matching font names kept in
+constants.
+
+What changed:
+
+- Files found only by their magic bytes count as fonts only if they parse. 0.1.0 reported an
+  Android gesture library, Kotlin incremental-compile caches and a Core ML model's weights as
+  fonts.
+- Quoted font file names may contain spaces.
+- New reference forms: font names kept in constants, Interface Builder runtime attributes such
+  as `fontName`, and font file paths as Android XML text, the style form of the Calligraphy
+  library.
+- iOS built-in fonts are no longer reported as missing, including weight-specific names and
+  Apple's dot-prefixed system names. A comma-separated `font-family` list is split.
+- Directory scans skip SwiftPM index builds and repository mirrors, and `--exclude PATTERN` skips
+  more.
+- A byte check skips text files that cannot name a font, each file is read once, and linking
+  references to fonts is linear instead of quadratic. Linking codebase A's references took 2.2
+  seconds in 0.1.0 and takes 5 milliseconds in 0.1.1.
+- Reports neutralise font metadata, which comes from the scanned files: CSV cells that would
+  start a formula, HTML and links in Markdown, and escape sequences on a terminal.
+
+## Limitations
+
+1. **Fonts used only through a precompiled library** show as unreferenced in source scans, 8 of
+   the 72 fonts here. In Android binaries resources are referenced by numeric ID, so an `.apk`
+   scan cannot confirm use either.
+2. **Inline CSS.** A font family in a `style` attribute or a CSS rule outside `@font-face` is not
+   read (3 lines here).
+3. **Names built at runtime**, such as a family name joined with a weight, cannot be matched.
+4. **Quoted file names with spaces** link to bundled fonts, but are not reported as missing when
+   nothing matches, because such strings are often messages.
 
 ## Measuring your own code
 
@@ -264,8 +273,8 @@ Each item is tracked for a fix before promotion.
 mkdir -p /tmp/fontbom-clean && git archive HEAD | tar -x -C /tmp/fontbom-clean
 /usr/bin/time -l fontbom scan /tmp/fontbom-clean --format json --output clean.json --no-progress
 
-# The working tree as it is
-/usr/bin/time -l fontbom scan . --format json --output worktree.json --no-progress
+# The working tree as it is, skipping test targets, which never ship
+/usr/bin/time -l fontbom scan . --exclude '*Tests' --format json --output worktree.json --no-progress
 ```
 
 `/usr/bin/time -l` is the macOS form; on Linux use `/usr/bin/time -v`. The summary line on stderr

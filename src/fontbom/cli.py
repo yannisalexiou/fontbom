@@ -74,7 +74,7 @@ def main() -> None:
     multiple=True,
     metavar="PATTERN",
     help="Skip files and directories matching a shell-style pattern. Without '/' it matches a "
-    "name at any depth (Pods, *.tmp); with '/' it matches the path under PATH. Repeatable.",
+    "name at any depth (*Tests, *.tmp); with '/' it matches the path under PATH. Repeatable.",
 )
 @click.option("--no-references", is_flag=True, help="Skip code reference scanning.")
 @click.option(
